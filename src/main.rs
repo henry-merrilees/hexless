@@ -65,7 +65,9 @@ impl GameState {
                     self.reward += (*v).pow(2);
                 }
 
-                *selected = Tile::Dead;
+                if matches!(selected, Tile::Active(_)) {
+                    *selected = Tile::Dead;
+                }
             }
             Action::Advance => {
                 self.step();
@@ -171,7 +173,7 @@ fn solve(state: GameState, seen: &mut std::collections::HashSet<SeenState>) -> O
     best_state
 }
 
-fn accumulate(actions: &[Action], start: usize) {
+fn accumulate(actions: &[Action], start: usize, board_size: usize) {
     let mut location = start as isize; // cheat offset here initially
     let mut actions = actions.iter().peekable();
     while let Some(action) = actions.next() {
@@ -184,14 +186,14 @@ fn accumulate(actions: &[Action], start: usize) {
                 }
                 println!("Tap the active region {n} times");
             }
-            Action::CounterClockwise => {
+            Action::Clockwise => {
                 let mut n = 1;
-                while matches!(actions.peek(), Some(Action::CounterClockwise)) && n <= 3 {
+                while matches!(actions.peek(), Some(Action::Clockwise)) && n <= 3 {
                     actions.next();
                     n += 1;
                 }
-                location -= n;
-                location = location.rem_euclid(6);
+                location += n;
+                location = location.rem_euclid(board_size as isize);
 
                 if matches!(actions.peek(), Some(Action::Collect)) {
                     actions.next();
@@ -200,14 +202,14 @@ fn accumulate(actions: &[Action], start: usize) {
                     println!("Tap on {}", location);
                 }
             }
-            Action::Clockwise => {
+            Action::CounterClockwise => {
                 let mut n = 1;
-                while matches!(actions.peek(), Some(Action::Clockwise)) && n <= 3 {
+                while matches!(actions.peek(), Some(Action::CounterClockwise)) && n <= 3 {
                     actions.next();
                     n += 1;
                 }
-                location += n;
-                location = location.rem_euclid(6);
+                location -= n;
+                location = location.rem_euclid(board_size as isize);
 
                 if matches!(actions.peek(), Some(Action::Collect)) {
                     actions.next();
@@ -224,18 +226,24 @@ fn accumulate(actions: &[Action], start: usize) {
 }
 
 fn main() {
+    eprintln!("Pick one region to be \"0\" and, the rest of the regions are enumerated clockwise from there.");
+    eprintln!("Enter the number of latent tiles for each region going clockwise from \"0\" (white trapezoid distance from edge, starting from zero), and - for dead tiles, then press enter.");
+    eprintln!("This solver is agnostic to the number of regions, so make sure to be typing exactly 6 characters, if that is what you intend.");
     loop {
-        println!("Pick one region to be \"0\" and, the rest of the regions are enumerated clockwise from there.");
-        println!("Enter the number of latent tiles for each region going clockwise from \"0\" (white trapezoid distance from edge, starting from zero), and - for dead tiles, then press enter.");
-        println!("This solver is agnostic to the number of regions, so make sure to be typing exactly 6 characters, if that is what you intend.");
         let mut tiles = Vec::new();
 
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).unwrap();
         for c in input.chars() {
-            match c.to_digit(10) {
-                Some(v) => tiles.push(Tile::Latent(v as usize)),
-                None => tiles.push(Tile::Dead),
+            match c {
+                '0'..='9' => {
+                    let n = c.to_digit(10).unwrap() as usize;
+                    tiles.push(Tile::Latent(n));
+                }
+                '-' | ' ' => {
+                    tiles.push(Tile::Dead);
+                }
+                _ => {}
             }
         }
 
@@ -243,11 +251,15 @@ fn main() {
 
         let mut seen = std::collections::HashSet::new();
         let best_state = solve(game.clone(), &mut seen).unwrap();
-        println!("Number of states: {}", seen.len());
-        println!();
+        eprintln!("States Explored: {}", seen.len());
+        eprintln!();
 
         println!("Tap on {} to start", best_state.start_location.unwrap());
-        accumulate(&best_state.action_queue, best_state.start_location.unwrap());
-        println!();
+        accumulate(
+            &best_state.action_queue,
+            best_state.start_location.unwrap(),
+            best_state.tiles.len(),
+        );
+        eprintln!();
     }
 }
