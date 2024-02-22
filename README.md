@@ -5,7 +5,7 @@
 3. move into project
 4. run
 
-If you want me to do it for you: open terminal, copy paste this, and hit enter.
+If you are on a mac and want me to do it for you: open terminal, copy paste this, and hit enter.
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 git clone https://github.com/henry-merrilees/hexless
